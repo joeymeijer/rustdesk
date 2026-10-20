@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Download Joey Meijer Support voor het bieden van hulp op afstand.">
+  <title>Client voor hulpverleners | Joey Meijer</title>
+  <link rel="icon" href="/assets/icon.svg">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <main>
+    <header><a href="https://joeymeijer.nl">Joey Meijer</a><span class="hint">/ Remote support</span><a class="home" href="/">Hulp ontvangen ↗</a></header>
+    <section class="hero">
+      <span class="eyebrow">Voor hulpverleners</span>
+      <h1>De juiste tools.<br>Om hulp te bieden.</h1>
+      <p>Met Joey Meijer Support – Beheer maak je verbinding met een andere pc. De serverinstellingen zijn ingebouwd. Vul het ID van de andere pc in en vraag de gebruiker om toestemming.</p>
+      <a id="admin-download" class="download" href="#" aria-disabled="true">Download beheerclient</a>
+      <p id="download-status" class="hint" role="status">De Windows-download wordt gecontroleerd…</p>
+      <p class="hint">Windows 64-bit (Intel/AMD) · Deze download is openbaar beschikbaar.</p>
+    </section>
+    <section class="panel">
+      <p class="eyebrow">Zo maak je verbinding</p>
+      <h2>Hulp bieden in drie stappen</h2>
+      <ol class="steps">
+        <li>Laat de andere persoon de <a href="/">supportclient</a> openen en het getoonde ID doorgeven.</li>
+        <li>Open jouw beheerclient, vul dat ID in en kies Verbinden.</li>
+        <li>Laat de gebruiker de verbinding accepteren, of gebruik het wachtwoord dat voor die pc is ingesteld.</li>
+      </ol>
+      <p>De beheerclient geeft geen automatische toegang tot apparaten. Je hebt nog steeds toestemming of het juiste wachtwoord nodig.</p>
+      <p class="hint">Beide varianten gebruiken dezelfde RustDesk-installatie en service. Ze zijn niet bedoeld om als twee afzonderlijke installaties naast elkaar te staan.</p>
+    </section>
+    <footer>Joey Meijer · Gebaseerd op RustDesk (AGPL-3.0) · <a href="https://github.com/joeymeijer/rustdesk">Broncode</a> · <a href="/">Hulp ontvangen</a></footer>
+  </main>
+  <script>
+    const download=document.getElementById('admin-download');
+    download.addEventListener('click',event=>{if(download.getAttribute('aria-disabled')==='true')event.preventDefault();});
+    async function checkDownload(){
+      const message=document.getElementById('download-status');
+      try{
+        const response=await fetch('/downloads/rustdesk-admin-windows.exe',{method:'HEAD',cache:'no-store'});
+        if(!response.ok)throw new Error('Niet beschikbaar');
+        download.href='/downloads/rustdesk-admin-windows.exe';
+        download.download='Joey-Meijer-Support-Beheer.exe';
+        download.setAttribute('aria-disabled','false');
+        message.textContent='Joey Meijer Support – Beheer · Serverinstellingen ingebouwd';
+      }catch{
+        message.textContent='De beheerdownload is tijdelijk niet beschikbaar. Neem contact op met Joey.';
+      }
+    }
+    checkDownload();
+  </script>
+</body>
+</html>

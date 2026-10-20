@@ -1,0 +1,57 @@
+services:
+  hbbs:
+    image: rustdesk/rustdesk-server:latest
+    command: ["hbbs", "-r", "${RUSTDESK_HOST:?Vul RUSTDESK_HOST in .env in}:21117"]
+    restart: unless-stopped
+    depends_on:
+      - hbbr
+    ports:
+      - "21115:21115/tcp"
+      - "21116:21116/tcp"
+      - "21116:21116/udp"
+    volumes:
+      - ./data:/root
+    networks:
+      - rustdesk
+
+  hbbr:
+    image: rustdesk/rustdesk-server:latest
+    command: ["hbbr"]
+    restart: unless-stopped
+    ports:
+      - "21117:21117/tcp"
+    volumes:
+      - ./data:/root
+    networks:
+      - rustdesk
+
+  downloadpagina:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    ports:
+      - "${DOWNLOAD_PORT:-8085}:80/tcp"
+    environment:
+      RUSTDESK_HOST: "${RUSTDESK_HOST:?Vul RUSTDESK_HOST in .env in}"
+      RUSTDESK_PUBLIC_KEY: "${RUSTDESK_PUBLIC_KEY:-}"
+      NGINX_ENVSUBST_OUTPUT_DIR: /usr/share/nginx/html
+      NGINX_ENVSUBST_FILTER: "^RUSTDESK_(HOST|PUBLIC_KEY)$$"
+    volumes:
+      - ./web:/etc/nginx/templates:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./downloads:/usr/share/nginx/html/downloads:ro
+      - ./assets:/usr/share/nginx/html/assets:ro
+    networks:
+      - rustdesk
+
+  prepare-client:
+    image: python:3-alpine
+    profiles: ["tools"]
+    working_dir: /work
+    command: ["python", "/work/prepare-client.py"]
+    volumes:
+      - ./prepare-client.py:/work/prepare-client.py:ro
+      - ./downloads:/downloads
+
+networks:
+  rustdesk:
+    driver: bridge

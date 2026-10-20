@@ -1,0 +1,186 @@
+name: Joey Meijer - Windows clients
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/joey-windows.yml'
+      - 'brand/joey-meijer/**'
+      - 'src/joey_branding.rs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: joey-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.24.5'
+  RUST_VERSION: '1.75'
+  VCPKG_COMMIT_ID: '9e593bb18ea69cc5095e012465dcd675a822ed0d'
+  VCPKG_BINARY_SOURCES: 'clear;x-gha,readwrite'
+
+jobs:
+  validate-downloads:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s deploy/download-site -p 'test_*.py'
+
+  bridge:
+    uses: ./.github/workflows/bridge.yml
+
+  window-helper:
+    uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
+    with:
+      upload-artifact: true
+      target: windows-2022
+      configuration: Release
+      platform: x64
+      target_version: Windows10
+
+  windows:
+    needs: [validate-downloads, bridge, window-helper]
+    runs-on: windows-2022
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [support, admin]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: bridge-artifact
+          path: ./
+
+      - name: Stage JM artwork and Windows resource metadata
+        run: python brand/joey-meijer/prepare.py ${{ matrix.variant }}
+
+      - uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0
+        with:
+          version: '15.0.6'
+
+      - uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
+        id: flutter
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          architecture: x64
+
+      - name: Install upstream Windows Flutter engine and dropdown patch
+        shell: bash
+        run: |
+          flutter precache --windows
+          curl --fail --location --retry 3 https://github.com/rustdesk/engine/releases/download/main/windows-x64-release.zip -o engine.zip
+          powershell -NoProfile -Command 'Expand-Archive engine.zip -DestinationPath patched-engine'
+          flutter_root="$(dirname "$(dirname "$(which flutter)")")"
+          cp -rf patched-engine/* "$flutter_root/bin/cache/artifacts/engine/windows-x64-release/"
+          git -C "$flutter_root" apply "$GITHUB_WORKSPACE/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff"
+
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
+        with:
+          prefix-key: joey-windows-${{ matrix.variant }}
+
+      - name: Export vcpkg binary cache environment
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2
+        with:
+          vcpkgDirectory: C:\vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
+
+      - name: Install native dependencies
+        shell: bash
+        env:
+          VCPKG_DEFAULT_HOST_TRIPLET: x64-windows-static
+        run: '"$VCPKG_ROOT/vcpkg" install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"'
+
+      - name: Build branded Flutter client
+        run: |
+          python build.py --portable --flutter --skip-portable-pack --hwcodec --vram --joey-variant ${{ matrix.variant }}
+          if ($LASTEXITCODE -ne 0) { throw 'RustDesk build failed' }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item -Recurse flutter/build/windows/x64/runner/Release dist/rustdesk
+
+      - name: Verify embedded server, service identity and connection mode
+        shell: bash
+        run: cargo test --locked --release --lib --features flutter,hwcodec,vram,joey-${{ matrix.variant }} joey_branding::tests -- --test-threads=1
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: topmostwindow-artifacts-x64
+          path: dist/rustdesk
+
+      - name: Package client and publish checksums
+        shell: pwsh
+        run: |
+          Copy-Item LICENCE dist/rustdesk/LICENCE.txt
+          "Source: https://github.com/${{ github.repository }}/tree/${{ github.sha }}`nVariant: ${{ matrix.variant }}`nBuilt from modified RustDesk source under AGPL-3.0." | Set-Content dist/rustdesk/SOURCE.txt
+          python -m pip install -r libs/portable/requirements.txt
+          python libs/portable/generate.py -f dist/rustdesk -o libs/portable -e dist/rustdesk/rustdesk.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Portable packaging failed' }
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Copy-Item target/release/rustdesk-portable-packer.exe release/rustdesk-${{ matrix.variant }}-windows.exe
+          Compress-Archive -Path dist/rustdesk/* -DestinationPath release/rustdesk-${{ matrix.variant }}-windows.zip
+          $hash = (Get-FileHash release/rustdesk-${{ matrix.variant }}-windows.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  rustdesk-${{ matrix.variant }}-windows.exe" | Set-Content release/sha256-${{ matrix.variant }}.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: joey-windows-${{ matrix.variant }}
+          path: release/*
+          if-no-files-found: error
+
+  publish:
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: joey-windows-*
+          path: release
+          merge-multiple: true
+      - name: Include website deployment files and source archive
+        run: |
+          tar -czf release/joey-download-site.tar.gz -C deploy/download-site .
+          git archive --format=tar.gz -o release/joey-client-source.tar.gz HEAD
+          cat release/sha256-*.txt > release/sha256sums.txt
+      - uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
+        with:
+          tag_name: joey-windows-${{ github.run_number }}-${{ github.sha }}
+          name: Joey Meijer Windows clients - build ${{ github.run_number }}
+          body: |
+            Windows x64 clients built from this fork: support receives help; admin can provide help.
+            Both use support.joeymeijer.nl. No passwords are embedded.
+            Executables are unsigned. Technical service/config identity remains RustDesk.
+            See brand/joey-meijer/README.txt for installation, source and maintenance.
+          files: release/*

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Download RustDesk en verbind met onze eigen remote desktop-server.">
+  <title>Hulp op afstand | Joey Meijer</title>
+  <link rel="icon" href="/assets/icon.svg">
+  <style>
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; color: #111827; background: #f4f5f7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 960px; margin: auto; padding: 40px 24px 64px; }
+    header { display: flex; align-items: center; gap: 12px; font-weight: 700; background: #111827; color: white; padding: 18px 24px; margin: -40px -24px 0; border-bottom: 1px solid #334155; }
+    header a { color: white; text-decoration: none; }
+    .home { margin-left: auto; font-size: 14px; font-weight: 400; color: #cbd5e1; }
+    .mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #146252; color: white; }
+    .hero { padding: 64px 32px 44px; background: radial-gradient(ellipse at top right, #164e63 0%, #111827 65%); color: white; margin: 0 -24px 32px; }
+    .hero p { color: #d1d5db; max-width: 690px; }
+    .hero .eyebrow { color: #5eead4; }
+    .hero a:not(.download) { color: #5eead4; }
+    .eyebrow { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: #146252; font-weight: 700; }
+    h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.08; letter-spacing: -.04em; margin: 18px 0; }
+    p { line-height: 1.65; color: #4d626d; }
+    a { color: #146252; }
+    .download { display: inline-block; padding: 14px 22px; border-radius: 6px; background: #f59e0b; color: #111827; font-weight: 720; text-decoration: none; margin-top: 12px; }
+    .download:hover { background: #fbbf24; }
+    .download[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+    .hint { font-size: 14px; }
+    .panel { background: white; padding: 28px; border: 1px solid #d8dee8; border-radius: 8px; }
+    h2 { font-size: 24px; margin: 0 0 12px; }
+    .steps { padding-left: 24px; line-height: 1.7; color: #4d626d; }
+    .settings { display: grid; gap: 12px; margin: 24px 0; }
+    .setting { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 12px; align-items: center; background: #f3f6f7; padding: 14px; border-radius: 10px; }
+    .label { font-weight: 650; font-size: 14px; }
+    code { font-family: ui-monospace, Consolas, monospace; font-size: 14px; overflow-wrap: anywhere; }
+    button { font: inherit; font-size: 13px; border: 1px solid #cbd9dd; border-radius: 7px; background: white; padding: 8px 12px; color: #146252; cursor: pointer; }
+    button:hover { background: #e4eeeb; }
+    a:focus-visible, button:focus-visible { outline: 3px solid #e1ac38; outline-offset: 4px; }
+    .notice { border-left: 3px solid #e1ac38; padding: 8px 14px; background: #fff8e7; }
+    footer { margin-top: 24px; font-size: 13px; color: #647783; }
+    #status { min-height: 24px; font-size: 14px; color: #146252; }
+    .config-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
+    @media (max-width: 600px) { main { padding: 24px 16px 40px; } header { margin: -24px -16px 0; padding: 16px; } .hero { margin: 0 -16px 24px; padding: 40px 20px 32px; } .panel { padding: 20px; } .setting { grid-template-columns: minmax(0, 1fr) auto; } .label { grid-column: 1 / -1; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header><a href="https://joeymeijer.nl">Joey Meijer</a><span class="hint">/ Remote support</span><a class="home" href="https://joeymeijer.nl">Portfolio ↗</a></header>
+    <section class="hero">
+      <span class="eyebrow">IT-ondersteuning · Joey Meijer</span>
+      <h1>Hulp op afstand.<br>Direct goed verbonden.</h1>
+      <p>Download Joey Meijer Support voor Windows. Open de app en geef je ID door aan Joey om hulp te krijgen. De verbinding met onze server is al ingesteld.</p>
+      <a id="windows-download" class="download" href="#" aria-disabled="true">Download voor Windows</a>
+      <p id="download-status" class="hint" role="status">De Windows-download wordt gecontroleerd…</p>
+      <p class="hint">Windows 64-bit (Intel/AMD). Deze versie is bedoeld om hulp te ontvangen. Voor andere apparaten: <a href="https://github.com/rustdesk/rustdesk/releases/latest" target="_blank" rel="noopener noreferrer">RustDesk-downloads ↗</a> of <a href="https://apps.apple.com/app/rustdesk-remote-desktop/id1581225015" target="_blank" rel="noopener noreferrer">App Store ↗</a>.</p>
+    </section>
+    <section class="panel" aria-labelledby="settings-heading">
+      <p class="eyebrow">Andere apparaten of handmatig instellen</p>
+      <h2 id="settings-heading">Onze serverinstellingen</h2>
+      <p>Onze Windows-app heeft deze instellingen ingebouwd. Gebruik je een standaard RustDesk-client op een ander apparaat? Dan kun je ze hieronder kopiëren of importeren.</p>
+      <ol class="steps">
+        <li>Installeer of open RustDesk op je apparaat.</li>
+        <li>Open <strong>Instellingen → Netwerk → ID/relayserver</strong>. Ontgrendel de netwerkinstellingen als RustDesk daarom vraagt.</li>
+        <li>Vul de onderstaande waarden in en bevestig. Laat <strong>API-server</strong> leeg.</li>
+      </ol>
+      <div class="settings">
+        <div class="setting"><span class="label">ID-server</span><code id="id-server">${RUSTDESK_HOST}</code><button type="button" data-copy="id-server" aria-label="Kopieer ID-server">Kopieer</button></div>
+        <div class="setting"><span class="label">Relayserver</span><code id="relay-server">${RUSTDESK_HOST}:21117</code><button type="button" data-copy="relay-server" aria-label="Kopieer relayserver">Kopieer</button></div>
+        <div class="setting"><span class="label">Key</span><code id="public-key">${RUSTDESK_PUBLIC_KEY}</code><button type="button" id="copy-key" data-copy="public-key" aria-label="Kopieer publieke key">Kopieer</button></div>
+      </div>
+      <div class="config-actions"><button id="copy-config" type="button">Kopieer serverconfiguratie</button><button id="save-config" type="button">Download configuratie (.txt)</button></div>
+      <p class="hint">Kopieer de serverconfiguratie en kies in RustDesk <strong>Instellingen → Netwerk → Serverconfiguratie importeren</strong>. Ontgrendel de instellingen indien nodig en bevestig met Toepassen.</p>
+      <p id="key-notice" class="notice" hidden>De beheerder moet de publieke serverkey nog invullen. Wacht daarmee voordat je de verbinding instelt.</p>
+      <p id="status" role="status" aria-live="polite"></p>
+      <p class="hint">Bij een bestaande RustDesk-installatie: controleer het serveradres in de netwerkinstellingen en importeer zo nodig de configuratie. Laat alleen iemand die je vertrouwt toe tot je apparaat.</p>
+    </section>
+    <footer>Joey Meijer · Gebaseerd op RustDesk (AGPL-3.0) · <a href="https://github.com/joeymeijer/rustdesk">Broncode</a> · <a href="/download/admin/">Client voor hulpverleners</a> · <a href="https://joeymeijer.nl">joeymeijer.nl</a></footer>
+  </main>
+  <script>
+    const key = document.getElementById('public-key');
+    const host = document.getElementById('id-server').textContent.trim();
+    const publicKey = key.textContent.trim();
+    const hasConfig = Boolean(publicKey && host && host !== 'rustdesk.example.com');
+    // RustDesk uses reversed, unpadded URL-safe Base64 JSON for CustomServer.
+    // This string is only used for importing settings into standard clients.
+    const config = btoa(JSON.stringify({host: host, key: publicKey})).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').split('').reverse().join('');
+    const download = document.getElementById('windows-download');
+    download.addEventListener('click', event => { if (download.getAttribute('aria-disabled') === 'true') event.preventDefault(); });
+    async function checkDownload() {
+      const message = document.getElementById('download-status');
+      try {
+        const response = await fetch('/downloads/rustdesk-support-windows.exe', {method: 'HEAD', cache: 'no-store'});
+        if (!response.ok) throw new Error('Niet beschikbaar');
+        download.href = '/downloads/rustdesk-support-windows.exe';
+        download.download = 'Joey-Meijer-Support.exe';
+        download.setAttribute('aria-disabled', 'false');
+        message.textContent = 'Joey Meijer Support · Serverinstellingen ingebouwd · Windows 64-bit';
+      } catch { message.textContent = 'De download is tijdelijk niet beschikbaar. Neem contact op met Joey of gebruik de RustDesk-downloads hieronder.'; }
+    }
+    checkDownload();
+    document.getElementById('copy-config').disabled = !hasConfig;
+    document.getElementById('save-config').disabled = !hasConfig;
+    document.getElementById('copy-config').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(config); document.getElementById('status').textContent = 'Serverconfiguratie gekopieerd. Importeer deze in RustDesk.'; }
+      catch { document.getElementById('status').textContent = 'Download het configuratiebestand en kopieer de inhoud handmatig.'; }
+    });
+    document.getElementById('save-config').addEventListener('click', () => {
+      const url = URL.createObjectURL(new Blob([config], {type: 'text/plain'}));
+      const link = document.createElement('a'); link.href = url; link.download = 'rustdesk-serverconfig.txt'; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    if (!key.textContent.trim()) {
+      key.textContent = 'Nog niet ingesteld';
+      document.getElementById('key-notice').hidden = false;
+      document.getElementById('copy-key').disabled = true;
+    }
+    document.querySelectorAll('[data-copy]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const value = document.getElementById(button.dataset.copy).textContent.trim();
+        const status = document.getElementById('status');
+        try {
+          await navigator.clipboard.writeText(value);
+          status.textContent = 'Gekopieerd naar het klembord.';
+        } catch {
+          status.textContent = 'Selecteer de waarde en kopieer deze handmatig. Kopieerknoppen werken via HTTPS.';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

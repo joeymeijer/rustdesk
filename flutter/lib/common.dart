@@ -3021,7 +3021,8 @@ int versionCmp(String v1, String v2) {
 }
 
 String getWindowName({WindowType? overrideType}) {
-  final name = bind.mainGetAppNameSync();
+  final displayName = bind.mainGetBuildinOption(key: 'joey-display-name');
+  final name = displayName.isEmpty ? bind.mainGetAppNameSync() : displayName;
   switch (overrideType ?? kWindowType) {
     case WindowType.Main:
       return name;

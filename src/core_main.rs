@@ -47,6 +47,8 @@ pub fn core_main() -> Option<CoreMainAction> {
         return None;
     }
     crate::load_custom_client();
+    #[cfg(any(feature = "joey-support", feature = "joey-admin"))]
+    crate::joey_branding::init();
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
         // return None to terminate the process

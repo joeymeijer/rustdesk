@@ -1,0 +1,49 @@
+JOEY MEIJER SUPPORT — DOWNLOADPAGINA
+
+Dit pakket vervangt de eerdere downloadpagina met twee eigen clientvarianten.
+Het levert geen extra toegangsrechten: pc-toestemming/wachtwoord blijft nodig.
+
+1. Maak een back-up van je bestaande RustDesk-map. Behoud je eigen .env en data/.
+   Pak dit pakket uit naast die bestanden. Kopieer NIET .env.example over .env.
+   Controleer dat je .env dezelfde host en publieke key heeft als de clientbuild.
+
+2. Controleer de Compose en start/update de pagina:
+     docker compose config --quiet
+     docker compose up -d --force-recreate downloadpagina
+
+3. Haal beide EXEs uit de laatste branded release van jouw fork op:
+     docker compose --profile tools run --rm prepare-client
+   Dit werkt na de eerste geslaagde "Joey Meijer - Windows clients"-release.
+   De updater haalt uitsluitend de branded EXEs van joeymeijer/rustdesk op en
+   weigert een release waarin een van beide ontbreekt. Hij corrigeert ook de
+   downloadmaprechten naar 755 en bestanden naar 644, zodat Nginx ze kan lezen.
+
+4. Nginx Proxy Manager blijft verwijzen naar http://<Docker-host-LAN-IP>:8085.
+   Pas alleen de poort aan als je DOWNLOAD_PORT wijzigt.
+   Gebruik HTTPS en Force SSL op support.joeymeijer.nl.
+   De adminpagina heeft bewust geen ACL.
+
+5. Controle:
+     curl -I http://127.0.0.1:8085/downloads/rustdesk-support-windows.exe
+     curl -I http://127.0.0.1:8085/downloads/rustdesk-admin-windows.exe
+   Beide moeten 200 OK geven. Open daarna:
+     https://support.joeymeijer.nl/
+     https://support.joeymeijer.nl/download/admin/
+   Nginx stuurt /download/admin zonder slash door naar de map met slash.
+   Vernieuw de browser met Ctrl+F5.
+
+De clientconfiguratie is ingebouwd; hernoemen van downloads verwijdert die niet.
+Er worden geen wachtwoorden in de clients of op de site gepubliceerd.
+De twee EXEs delen de technische RustDesk-service/configuratie en vervangen
+elkaar bij installatie op dezelfde pc. Voor jouw eigen pc gebruik je admin.
+
+De data/ map met private serverkey is uitsluitend in hbbs/hbbr gemount.
+Alleen de publieke key uit .env gaat naar de pagina. Downloadbestanden en
+site-assets zijn afzonderlijk alleen-lezen in de Nginx-container gemount.
+
+Beveiligingsheaders op de documentresponsen moeten passen bij inline scripts.
+Een strikte script-src 'self' zonder hashes/nonces blokkeert deze pagina.
+
+Bijwerken:
+  Bouw een nieuwe release via GitHub Actions, voer prepare-client opnieuw uit.
+  Deze updater gebruikt niet de officiele upstream RustDesk-release.

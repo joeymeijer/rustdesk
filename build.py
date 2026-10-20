@@ -106,6 +106,8 @@ def parse_rc_features(feature):
 
 def make_parser():
     parser = argparse.ArgumentParser(description='Build script.')
+    parser.add_argument('--joey-variant', choices=['support', 'admin'],
+                        help='Build a Joey Meijer Windows client variant.')
     parser.add_argument(
         '-f',
         '--feature',
@@ -314,6 +316,10 @@ def linux_packaging_branch():
 
 def get_features(args):
     features = ['inline'] if not args.flutter else []
+    if args.joey_variant:
+        if not windows or not args.flutter:
+            raise ValueError('--joey-variant requires a Windows Flutter build')
+        features.append('joey-' + args.joey_variant)
     if args.hwcodec:
         features.append('hwcodec')
     if args.vram:
