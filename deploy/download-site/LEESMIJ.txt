@@ -17,6 +17,7 @@ Het levert geen extra toegangsrechten: pc-toestemming/wachtwoord blijft nodig.
    De updater haalt uitsluitend de branded EXEs van joeymeijer/rustdesk op en
    weigert een release waarin een van beide ontbreekt. Hij corrigeert ook de
    downloadmaprechten naar 755 en bestanden naar 644, zodat Nginx ze kan lezen.
+   Dezelfde rechten worden op de publieke assets-map met CSS en favicon gezet.
 
 4. Nginx Proxy Manager blijft verwijzen naar http://<Docker-host-LAN-IP>:8085.
    Pas alleen de poort aan als je DOWNLOAD_PORT wijzigt.

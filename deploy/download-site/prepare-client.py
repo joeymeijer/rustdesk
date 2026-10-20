@@ -12,6 +12,12 @@ def main():
     output=Path(os.environ.get('DOWNLOAD_DIR','/downloads'))
     output.mkdir(parents=True,exist_ok=True)
     output.chmod(0o755)
+    if assets_directory:=os.environ.get('SITE_ASSET_DIR'):
+        assets_path=Path(assets_directory)
+        assets_path.chmod(0o755)
+        for asset_path in assets_path.iterdir():
+            if asset_path.is_file():
+                asset_path.chmod(0o644)
     headers={'User-Agent':'JoeyMeijer-client-updater','Accept':'application/vnd.github+json'}
     request=urllib.request.Request(f'https://api.github.com/repos/{REPOSITORY}/releases/latest',headers=headers)
     with urllib.request.urlopen(request,timeout=60) as response:

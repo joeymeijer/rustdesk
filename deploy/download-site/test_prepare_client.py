@@ -29,15 +29,23 @@ class UpdaterTest(unittest.TestCase):
         binary,open_url=self.fixture()
         with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{'DOWNLOAD_DIR':directory}),patch.object(updater.urllib.request,'urlopen',side_effect=open_url):
             output=Path(directory)
+            assets=output/'assets'
+            assets.mkdir(mode=0o700)
+            stylesheet=assets/'site.css'
+            stylesheet.write_text('body {}')
+            stylesheet.chmod(0o600)
             if os.name!='nt':
                 output.chmod(0o700)
-            updater.main()
+            with patch.dict(os.environ,{'SITE_ASSET_DIR':str(assets)}):
+                updater.main()
             for filename in updater.FILES:
                 self.assertEqual((output/filename).read_bytes(),binary)
                 if os.name!='nt':
                     self.assertEqual((output/filename).stat().st_mode & 0o777,0o644)
             if os.name!='nt':
                 self.assertEqual(output.stat().st_mode & 0o777,0o755)
+                self.assertEqual(assets.stat().st_mode & 0o777,0o755)
+                self.assertEqual(stylesheet.stat().st_mode & 0o777,0o644)
             self.assertEqual(json.loads((output/'release.json').read_text())['release'],'test')
 
     def test_bad_second_digest_keeps_both_previous_downloads(self):

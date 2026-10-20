@@ -48,9 +48,12 @@ services:
     profiles: ["tools"]
     working_dir: /work
     command: ["python", "/work/prepare-client.py"]
+    environment:
+      SITE_ASSET_DIR: /site-assets
     volumes:
       - ./prepare-client.py:/work/prepare-client.py:ro
       - ./downloads:/downloads
+      - ./assets:/site-assets
 
 networks:
   rustdesk:
