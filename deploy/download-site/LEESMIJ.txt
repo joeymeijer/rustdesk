@@ -33,6 +33,8 @@ Het levert geen extra toegangsrechten: pc-toestemming/wachtwoord blijft nodig.
    Vernieuw de browser met Ctrl+F5.
 
 De clientconfiguratie is ingebouwd; hernoemen van downloads verwijdert die niet.
+De oude URL /downloads/rustdesk-windows.exe stuurt door naar de supportclient,
+zodat bestaande installatiescripts met curl -L blijven werken.
 Er worden geen wachtwoorden in de clients of op de site gepubliceerd.
 De twee EXEs delen de technische RustDesk-service/configuratie en vervangen
 elkaar bij installatie op dezelfde pc. Voor jouw eigen pc gebruik je admin.
