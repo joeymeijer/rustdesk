@@ -2,11 +2,13 @@
 param(
     [Parameter(Mandatory=$true)][string]$SourceHost,
     [string]$SourceDirectory = '/home/joey/docker/rustdesk',
-    [string]$DestinationDirectory = (Join-Path $PSScriptRoot 'backups'),
+    [string]$DestinationDirectory = '',
     [string]$StandbyHost,
-    [string]$StandbyBaseDirectory = '/srv/rustdesk-recovery'
+    [string]$StandbyBaseDirectory = '/srv/rustdesk-recovery',
+    [switch]$CheckOnly
 )
 $ErrorActionPreference = 'Stop'
+if (-not $DestinationDirectory) { $DestinationDirectory = Join-Path $PSScriptRoot 'backups' }
 
 function Quote-Sh([string]$Value) {
     if ($Value.Contains("`n") -or $Value.Contains("`r")) { throw 'Geen nieuwe regels in argumenten.' }
@@ -18,9 +20,13 @@ function Check-Host([string]$Value) {
         throw 'Gebruik een SSH-configalias of user@host (IPv6 via SSH-configalias).'
     }
 }
-function Invoke-Remote([string]$Target, [string]$Command) {
-    $lines = @(& ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 $Target $Command)
-    if ($LASTEXITCODE -ne 0) { throw ('SSH-opdracht mislukt op ' + $Target + '. Controleer bovenstaande foutmelding.') }
+function Invoke-Remote([string]$Target, [string]$Command, [string]$Step = 'SSH-opdracht') {
+    Write-Host ('[' + $Target + '] ' + $Step)
+    $lines = @(& ssh -T -n -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 $Target $Command)
+    if ($LASTEXITCODE -ne 0) {
+        $code = $LASTEXITCODE
+        throw ('Stap: ' + $Step + '; host: ' + $Target + '; SSH-exitcode: ' + $code + '. Bij exitcode 255 is de SSH-verbinding mislukt/onderbroken. Een back-up of herstelactie wordt niet automatisch herhaald: die kan op de server nog lopen.')
+    }
     return ($lines -join "`n").Trim()
 }
 function Copy-Checked([string]$From, [string]$To) {
@@ -28,7 +34,7 @@ function Copy-Checked([string]$From, [string]$To) {
     if ($LASTEXITCODE -ne 0) { throw 'SCP-overdracht mislukt; reeds gemaakte bronback-up blijft bewaard.' }
 }
 function Upload-Helper([string]$Target) {
-    $folder = Invoke-Remote $Target 'mktemp -d /tmp/joey-rustdesk-tools.XXXXXXXX'
+    $folder = Invoke-Remote $Target 'mktemp -d /tmp/joey-rustdesk-tools.XXXXXXXX' 'Tijdelijke helpermap maken'
     if ($folder -notmatch '\A/tmp/joey-rustdesk-tools\.[a-zA-Z0-9]+\z') { throw 'Onverwacht tijdelijk pad van SSH-server.' }
     Copy-Checked (Join-Path $PSScriptRoot 'rustdesk-dr.py') ($Target + ':' + $folder + '/rustdesk-dr.py')
     return $folder
@@ -50,14 +56,26 @@ try {
     }
     foreach ($program in @('ssh','scp')) { Get-Command $program -ErrorAction Stop | Out-Null }
     if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'rustdesk-dr.py'))) { throw 'rustdesk-dr.py ontbreekt naast dit script.' }
+    Write-Host 'Bronverbinding controleren; SSH-key en sudo zonder prompt zijn vereist...'
+    Invoke-Remote $SourceHost 'sudo -n true && command -v python3 && docker compose version' 'Bronvoorwaarden controleren' | Write-Host
+    if ($CheckOnly) {
+        $check = 'sudo -n test -d ' + (Quote-Sh $SourceDirectory) + ' && sudo -n test -f ' + (Quote-Sh ($SourceDirectory.TrimEnd('/') + '/.env')) + ' && sudo -n test -f ' + (Quote-Sh ($SourceDirectory.TrimEnd('/') + '/data/id_ed25519')) + ' && printf SOURCE_FILES_OK'
+        Invoke-Remote $SourceHost $check 'Tweede SSH-sessie en bronpaden controleren' | Write-Host
+        if ($StandbyHost) {
+            Invoke-Remote $StandbyHost 'sudo -n true && command -v python3 && docker compose version' 'Reservevoorwaarden controleren' | Write-Host
+        }
+        $sourceTools = Upload-Helper $SourceHost
+        $helperCheck = 'python3 ' + (Quote-Sh ($sourceTools + '/rustdesk-dr.py')) + ' --help'
+        Invoke-Remote $SourceHost $helperCheck 'Geuploade Python-helper controleren' | Out-Null
+        Write-Host 'CheckOnly geslaagd: SSH, sudo, bronpaden en helperoverdracht. Geen containers gestopt en geen back-up gestart.'
+        return
+    }
     New-Item -ItemType Directory -Force -Path $DestinationDirectory | Out-Null
     $destination = (Resolve-Path -LiteralPath $DestinationDirectory).Path
-    Write-Host 'Bronverbinding controleren; SSH-key en sudo zonder prompt zijn vereist...'
-    Invoke-Remote $SourceHost 'sudo -n true && command -v python3 && docker compose version' | Write-Host
     $sourceTools = Upload-Helper $SourceHost
     Write-Host 'Back-up maken. De broncontainers worden kort gestopt en daarna weer gestart...'
     $command = 'sudo -n python3 ' + (Quote-Sh ($sourceTools + '/rustdesk-dr.py')) + ' backup --stack-dir ' + (Quote-Sh $SourceDirectory)
-    $result = Read-RemoteJson (Invoke-Remote $SourceHost $command)
+    $result = Read-RemoteJson (Invoke-Remote $SourceHost $command 'Back-up op bron uitvoeren')
     if ($result.archive -notmatch '\A/var/tmp/rustdesk-backup-[a-zA-Z0-9_.-]+\.tar\.gz\z' -or $result.sha256 -notmatch '\A[a-f0-9]{64}\z') {
         throw 'Onverwacht back-upresultaat; geen overdracht uitgevoerd.'
     }
@@ -83,7 +101,7 @@ try {
         Copy-Checked $local ($StandbyHost + ':' + $remoteCopy)
         $stage = $StandbyBaseDirectory.TrimEnd('/') + '/' + $name.Replace('.tar.gz','')
         $command = 'sudo -n python3 ' + (Quote-Sh ($standbyTools + '/rustdesk-dr.py')) + ' restore --archive ' + (Quote-Sh $remoteCopy) + ' --sha256 ' + $result.sha256 + ' --target-dir ' + (Quote-Sh $stage)
-        $staged = Read-RemoteJson (Invoke-Remote $StandbyHost $command)
+        $staged = Read-RemoteJson (Invoke-Remote $StandbyHost $command 'Snapshot op reservehost klaarzetten')
         $activation = 'sudo python3 ' + (Quote-Sh ($staged.staged + '/rustdesk-dr.py')) + ' activate --stack-dir ' + (Quote-Sh $staged.staged)
         $instructions = @(
             'BACK-UP KLAARGEZET; RESERVECONTAINERS ZIJN NIET GESTART.',

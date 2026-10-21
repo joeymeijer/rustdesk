@@ -67,6 +67,33 @@ BACK-UP NAAR WINDOWS
   Gebruik geen ~ in SourceDirectory: geef het volledige Linux-pad op.
   De werkelijke SSH-host is nog niet ingevuld; dit zijn voorbeelden.
 
+ALLEEN DE VERBINDING CONTROLEREN
+    .\Backup-RustDesk.ps1 -SourceHost rustdesk-azure -CheckOnly
+
+  Dit controleert SSH, sudo, bronpaden, SCP-upload en Python via een tijdelijke
+  helper. Alleen tijdelijke helperbestanden worden geplaatst/opgeruimd; er
+  worden geen containers gestopt en geen back-ups gemaakt. Elke SSH-stap
+  noemt nu de host en stapnaam. Exitcode 255 wijst op een SSH-/transportfout;
+  andere exitcodes kunnen afkomstig zijn van de opdracht op de Linux-host.
+  SSH gebruikt expliciet geen terminal en geen standaardinvoer (-T -n),
+  passend bij een Windows-taak zonder interactief venster.
+  De standaard back-upmap wordt na parameterbinding bepaald, voor Windows
+  PowerShell 5.1-compatibiliteit. Een expliciete DestinationDirectory blijft werken.
+
+  Bij Connection reset/timeout: controleer via Azure Run command of een reeds
+  open SSH-sessie de ssh-service, firewall en logs. Zet beveiliging niet uit
+  om de fout te omzeilen. Voorbeelden van alleen-lezen controles:
+    sudo systemctl is-active ssh
+    sudo ufw status numbered
+    sudo journalctl -u ssh --since '-20 minutes' --no-pager -n 60
+    sudo journalctl -k --since '-20 minutes' --no-pager | grep 'UFW' | tail -n 20
+  Controleer ook Azure NSG/JIT-regels en de netwerk/firewalllogs op Windows.
+  Er is geen automatische retry van backup/restore: na een verbindingsbreuk
+  kan zo'n actie nog op de server lopen. Kijk eerst naar de broncontainers.
+
+  Taakplanner: gebruik hetzelfde Windows-account met toegang tot de SSH-key
+  en test CheckOnly onder dat account. SYSTEM heeft andere SSH-keys/config.
+
 METEEN EEN RESERVEKOPIE KLAARZETTEN
     .\Backup-RustDesk.ps1 -SourceHost rustdesk-azure `
       -SourceDirectory /home/joey/docker/rustdesk `
