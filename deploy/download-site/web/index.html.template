@@ -25,7 +25,6 @@
     a { color: #146252; }
     .download { display: inline-block; padding: 14px 22px; border-radius: 6px; background: #f59e0b; color: #111827; font-weight: 720; text-decoration: none; margin-top: 12px; }
     .download:hover { background: #fbbf24; }
-    .download[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
     .hint { font-size: 14px; }
     .panel { background: white; padding: 28px; border: 1px solid #d8dee8; border-radius: 8px; }
     h2 { font-size: 24px; margin: 0 0 12px; }
@@ -51,8 +50,8 @@
       <span class="eyebrow">IT-ondersteuning · Joey Meijer</span>
       <h1>Hulp op afstand.<br>Direct goed verbonden.</h1>
       <p>Download Joey Meijer Support voor Windows. Open de app en geef je ID door aan Joey om hulp te krijgen. De verbinding met onze server is al ingesteld.</p>
-      <a id="windows-download" class="download" href="#" aria-disabled="true">Download voor Windows</a>
-      <p id="download-status" class="hint" role="status">De Windows-download wordt gecontroleerd…</p>
+      <a id="windows-download" class="download" href="https://github.com/joeymeijer/rustdesk/releases/latest/download/rustdesk-support-windows.exe">Download voor Windows</a>
+      <p id="download-status" class="hint" role="status">Nieuwste versie via GitHub · Serverinstellingen ingebouwd</p>
       <p class="hint">Windows 64-bit (Intel/AMD). Deze versie is bedoeld om hulp te ontvangen. Voor andere apparaten: <a href="https://github.com/rustdesk/rustdesk/releases/latest" target="_blank" rel="noopener noreferrer">RustDesk-downloads ↗</a> of <a href="https://apps.apple.com/app/rustdesk-remote-desktop/id1581225015" target="_blank" rel="noopener noreferrer">App Store ↗</a>.</p>
     </section>
     <section class="panel" aria-labelledby="settings-heading">
@@ -85,20 +84,6 @@
     // RustDesk uses reversed, unpadded URL-safe Base64 JSON for CustomServer.
     // This string is only used for importing settings into standard clients.
     const config = btoa(JSON.stringify({host: host, key: publicKey})).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').split('').reverse().join('');
-    const download = document.getElementById('windows-download');
-    download.addEventListener('click', event => { if (download.getAttribute('aria-disabled') === 'true') event.preventDefault(); });
-    async function checkDownload() {
-      const message = document.getElementById('download-status');
-      try {
-        const response = await fetch('/downloads/rustdesk-support-windows.exe', {method: 'HEAD', cache: 'no-store'});
-        if (!response.ok) throw new Error('Niet beschikbaar');
-        download.href = '/downloads/rustdesk-support-windows.exe';
-        download.download = 'Joey-Meijer-Support.exe';
-        download.setAttribute('aria-disabled', 'false');
-        message.textContent = 'Joey Meijer Support · Serverinstellingen ingebouwd · Windows 64-bit';
-      } catch { message.textContent = 'De download is tijdelijk niet beschikbaar. Neem contact op met Joey of gebruik de RustDesk-downloads hieronder.'; }
-    }
-    checkDownload();
     document.getElementById('copy-config').disabled = !hasConfig;
     document.getElementById('save-config').disabled = !hasConfig;
     document.getElementById('copy-config').addEventListener('click', async () => {

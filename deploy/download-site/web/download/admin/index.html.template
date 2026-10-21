@@ -15,8 +15,8 @@
       <span class="eyebrow">Voor hulpverleners</span>
       <h1>De juiste tools.<br>Om hulp te bieden.</h1>
       <p>Met Joey Meijer Support – Beheer maak je verbinding met een andere pc. De serverinstellingen zijn ingebouwd. Vul het ID van de andere pc in en vraag de gebruiker om toestemming.</p>
-      <a id="admin-download" class="download" href="#" aria-disabled="true">Download beheerclient</a>
-      <p id="download-status" class="hint" role="status">De Windows-download wordt gecontroleerd…</p>
+      <a id="admin-download" class="download" href="https://github.com/joeymeijer/rustdesk/releases/latest/download/rustdesk-admin-windows.exe">Download beheerclient</a>
+      <p id="download-status" class="hint" role="status">Nieuwste versie via GitHub · Serverinstellingen ingebouwd</p>
       <p class="hint">Windows 64-bit (Intel/AMD) · Deze download is openbaar beschikbaar.</p>
     </section>
     <section class="panel">
@@ -32,23 +32,5 @@
     </section>
     <footer>Joey Meijer · Gebaseerd op RustDesk (AGPL-3.0) · <a href="https://github.com/joeymeijer/rustdesk">Broncode</a> · <a href="/">Hulp ontvangen</a></footer>
   </main>
-  <script>
-    const download=document.getElementById('admin-download');
-    download.addEventListener('click',event=>{if(download.getAttribute('aria-disabled')==='true')event.preventDefault();});
-    async function checkDownload(){
-      const message=document.getElementById('download-status');
-      try{
-        const response=await fetch('/downloads/rustdesk-admin-windows.exe',{method:'HEAD',cache:'no-store'});
-        if(!response.ok)throw new Error('Niet beschikbaar');
-        download.href='/downloads/rustdesk-admin-windows.exe';
-        download.download='Joey-Meijer-Support-Beheer.exe';
-        download.setAttribute('aria-disabled','false');
-        message.textContent='Joey Meijer Support – Beheer · Serverinstellingen ingebouwd';
-      }catch{
-        message.textContent='De beheerdownload is tijdelijk niet beschikbaar. Neem contact op met Joey.';
-      }
-    }
-    checkDownload();
-  </script>
 </body>
 </html>

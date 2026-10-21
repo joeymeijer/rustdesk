@@ -11,13 +11,16 @@ Het levert geen extra toegangsrechten: pc-toestemming/wachtwoord blijft nodig.
      docker compose config --quiet
      docker compose up -d --force-recreate downloadpagina
 
-3. Haal beide EXEs uit de laatste branded release van jouw fork op:
-     docker compose --profile tools run --rm prepare-client
-   Dit werkt na de eerste geslaagde "Joey Meijer - Windows clients"-release.
-   De updater haalt uitsluitend de branded EXEs van joeymeijer/rustdesk op en
-   weigert een release waarin een van beide ontbreekt. Hij corrigeert ook de
-   downloadmaprechten naar 755 en bestanden naar 644, zodat Nginx ze kan lezen.
-   Dezelfde rechten worden op de publieke assets-map met CSS en favicon gezet.
+3. De downloadknoppen verwijzen rechtstreeks naar GitHubs nieuwste release:
+     https://github.com/joeymeijer/rustdesk/releases/latest/download/rustdesk-support-windows.exe
+     https://github.com/joeymeijer/rustdesk/releases/latest/download/rustdesk-admin-windows.exe
+   Een nieuwe geslaagde branded release is automatisch via beide knoppen
+   beschikbaar. Er hoeft niets op de VM te worden gedownload of herstart.
+   Houd beide assetnamen gelijk; een ontbrekende asset geeft een GitHub-404.
+   De browser hoeft geen lokale download of GitHub API te controleren.
+   Zorg wel dat de publieke website-assets leesbaar zijn voor Nginx:
+     chmod 755 assets
+     chmod 644 assets/*
 
 4. Nginx Proxy Manager blijft verwijzen naar http://<Docker-host-LAN-IP>:8085.
    Pas alleen de poort aan als je DOWNLOAD_PORT wijzigt.
@@ -27,14 +30,14 @@ Het levert geen extra toegangsrechten: pc-toestemming/wachtwoord blijft nodig.
 5. Controle:
      curl -I http://127.0.0.1:8085/downloads/rustdesk-support-windows.exe
      curl -I http://127.0.0.1:8085/downloads/rustdesk-admin-windows.exe
-   Beide moeten 200 OK geven. Open daarna:
+   Beide moeten 302 naar de overeenkomstige GitHub latest-download geven. Open daarna:
      https://support.joeymeijer.nl/
      https://support.joeymeijer.nl/download/admin/
    Nginx stuurt /download/admin zonder slash door naar de map met slash.
    Vernieuw de browser met Ctrl+F5.
 
 De clientconfiguratie is ingebouwd; hernoemen van downloads verwijdert die niet.
-De oude URL /downloads/rustdesk-windows.exe stuurt door naar de supportclient,
+De oude URL /downloads/rustdesk-windows.exe stuurt ook door naar GitHub latest,
 zodat bestaande installatiescripts met curl -L blijven werken.
 Er worden geen wachtwoorden in de clients of op de site gepubliceerd.
 De twee EXEs delen de technische RustDesk-service/configuratie en vervangen
@@ -48,5 +51,9 @@ Beveiligingsheaders op de documentresponsen moeten passen bij inline scripts.
 Een strikte script-src 'self' zonder hashes/nonces blokkeert deze pagina.
 
 Bijwerken:
-  Bouw een nieuwe release via GitHub Actions, voer prepare-client opnieuw uit.
-  Deze updater gebruikt niet de officiele upstream RustDesk-release.
+  Bouw een nieuwe release via GitHub Actions; de knoppen volgen GitHub latest.
+  Dit gebruikt joeymeijer/rustdesk, niet de officiele upstream-release.
+  De optionele prepare-client-tool blijft beschikbaar voor lokale kopieen,
+  maar is niet meer nodig voor de website. Bestaande lokale EXEs worden door
+  de /downloads/-redirects niet meer aangeboden.
+  Dit wijzigt geen reeds geinstalleerde client; rol updates uit met ESET.
