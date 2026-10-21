@@ -1,0 +1,165 @@
+RUSTDESK COMMUNITY — BACK-UP EN RESERVEMACHINE
+
+Dit is een cold standby met periodieke snapshots, geen cluster met replicatie.
+Iedere run stopt kort alleen jouw bestaande RustDesk Compose-containers,
+kopieert de volledige stackmap en start de oorspronkelijk actieve containers
+weer. Daarna worden Docker-images opgeslagen, het pakket gecomprimeerd en
+via SSH/SCP naar de Windows-pc gekopieerd. SHA256 en grootte worden vergeleken.
+Met -StandbyHost wordt dezelfde snapshot op een aparte Linux-host klaargezet.
+Er worden daarbij GEEN reservecontainers aangemaakt of gestart.
+
+WAT ZIT ERIN
+  De hele stackmap, inclusief verborgen bestanden, .env, serverkeys, SQLite-
+  database/WAL, Compose, templates, scripts, logo's en eventueel lokale EXEs.
+  De gebruikte image-IDs en Docker-images van bestaande normale containers.
+  Zo gebruikt herstel dezelfde images, ook als een upstream latest-tag verandert.
+  De Compose-projectnaam en de services die actief waren worden bewaard.
+  Netwerken/containers worden bij activering opnieuw door Compose aangemaakt.
+  Het back-uparchief bevat ook rustdesk-dr.py voor later herstel. Indien nodig:
+    tar -xOf backup.tar.gz rustdesk-dr.py > rustdesk-dr.py
+
+NIET MEEGENOMEN
+  Processen, sessies, Docker-logs en handmatige wijzigingen in de beschrijfbare
+  containerlaag buiten bind-mounts. Zet blijvende wijzigingen in Compose,
+  templates, bind-mounts of een eigen image; een container is geen VM-back-up.
+  De VM zelf, Linux/SSH/firewallinstellingen, publieke IP's, DNS en externe
+  volumes of mappen. Named/anonymous Docker-volumes en symlinks worden expliciet
+  geweigerd in plaats van een onvolledige back-up te maken. Dit past bij jouw
+  huidige Compose: alle persistente bind-mounts staan in de RustDesk-stackmap.
+  Nginx Proxy Manager en de TLS-certificaten staan elders en zitten er NIET in.
+  Regel de proxy met dezelfde hostnaam/certificaten apart op de reservehost.
+  Secrets/configs buiten de stackmap moeten eerst in de stackmap worden geplaatst.
+
+VOORAF
+  Windows: PowerShell 5.1+ en OpenSSH Client (ssh.exe en scp.exe).
+  Linux-host(s): Python 3.9+, GNU tar, rootful Docker Engine en Docker Compose v2.
+  Dezelfde CPU-architectuur als de primaire VM (normaal Linux x86_64/amd64).
+  Voldoende ruimte: de bron heeft tijdelijk de stack-TAR, image-TAR en het
+  gecomprimeerde pakket nodig; de reservehost ook ruimte voor uitgepakte images.
+  SSH-keylogin moet werken. sudo -n moet de beheeropdrachten kunnen uitvoeren.
+  Dit script wijzigt geen sudoers, SSH-keys of host-keycontrole.
+  Maak eerst handmatig verbinding om de juiste hostfingerprint te controleren.
+  SSH-configaliassen ondersteunen een afwijkende SSH-poort, IdentityFile etc.
+
+  Voorbeeld in %USERPROFILE%\.ssh\config (vervang IP's en keypad):
+    Host rustdesk-azure
+        HostName JOUW_AZURE_IP
+        User joey
+        IdentityFile C:/Users/JOUW_NAAM/.ssh/id_ed25519
+    Host rustdesk-reserve
+        HostName JOUW_RESERVE_IP
+        User joey
+        IdentityFile C:/Users/JOUW_NAAM/.ssh/id_ed25519
+
+  Controleer:
+    ssh rustdesk-azure "sudo -n true && python3 --version && docker compose version"
+    ssh rustdesk-reserve "sudo -n true && python3 --version && docker compose version"
+
+BACK-UP NAAR WINDOWS
+  Pak alle bestanden uit deze ZIP samen uit in een eigen scriptmap.
+  Start vanuit PowerShell in die map:
+
+    .\Backup-RustDesk.ps1 -SourceHost rustdesk-azure `
+      -SourceDirectory /home/joey/docker/rustdesk `
+      -DestinationDirectory D:\Backups\RustDesk
+
+  Je kunt ook -SourceHost joey@JOUW_AZURE_IP gebruiken, met SSH op poort 22.
+  Gebruik geen ~ in SourceDirectory: geef het volledige Linux-pad op.
+  De werkelijke SSH-host is nog niet ingevuld; dit zijn voorbeelden.
+
+METEEN EEN RESERVEKOPIE KLAARZETTEN
+    .\Backup-RustDesk.ps1 -SourceHost rustdesk-azure `
+      -SourceDirectory /home/joey/docker/rustdesk `
+      -DestinationDirectory D:\Backups\RustDesk `
+      -StandbyHost rustdesk-reserve
+
+  Elke snapshot komt in een NIEUWE map onder /srv/rustdesk-recovery.
+  Oudere snapshots/werkende installaties worden nooit overschreven of gewist.
+  De map bevat alle configuratie/data, images zijn al in Docker geladen.
+  De bestanden zijn op Linux alleen via root/sudo toegankelijk.
+  Naast de lokale back-up verschijnt .standby.txt met de EXACTE activatieopdracht.
+  Bij een fout op de reservehost blijft de geverifieerde Windows-back-up behouden.
+
+  Herhaal dit na configuratiewijzigingen en volgens je gewenste back-upinterval.
+  Alleen de toestand op het snapshotmoment wordt gekopieerd. Na dat moment
+  ontstane wijzigingen ontbreken tot de volgende geslaagde back-up.
+  De scripts plannen niets automatisch. Elke back-up onderbreekt RustDesk kort;
+  een relay-sessie kan daardoor verbroken worden. Plan dit op een rustig moment.
+
+FAILOVER
+  1. Zorg dat de oude primaire server echt uit of geisoleerd is, ook als hij
+     later vanzelf herstart. Laat niet twee onafhankelijke primaries ontstaan.
+  2. Open het nieuwste .standby.txt en voer de activatieopdracht via SSH uit.
+     Bijvoorbeeld, met de echte snapshotmap in plaats van SNAPSHOT:
+
+       sudo python3 /srv/rustdesk-recovery/SNAPSHOT/rustdesk-dr.py activate \
+         --stack-dir /srv/rustdesk-recovery/SNAPSHOT
+
+     Dit gebruikt de bewaarde projectnaam, Compose-bestanden en image-ID-override.
+     Het weigert activering als dat Compose-project al op die host bestaat.
+     Een gedeeltelijk mislukte activering vereist handmatige inspectie met
+     docker ps/logs; voer niet blind een tweede activering uit.
+  3. Controleer op de reservehost poorten en logs. Voor jouw huidige Compose:
+       inkomend TCP 21115, 21116, 21117 en UDP 21116.
+       8085 is de downloadsite achter Nginx Proxy Manager; geen RustDesk-relay.
+     Regel eventuele NAT, cloud-firewall, IPv4 EN IPv6 en de proxy/HTTPS-route.
+  4. Zet de publieke A-record EN eventuele AAAA-record voor support.joeymeijer.nl
+     om naar de reservehost. Gebruik DNS-only voor de RustDesk-poorten; een
+     gewone HTTP(S)-proxy kan deze RustDesk-TCP/UDP-poorten niet vervangen.
+  5. Controleer een nieuwe verbinding tussen twee echte clients van buitenaf.
+     Domeinnaam, poorten en beide serverkeys moeten hetzelfde blijven; genereer
+     geen nieuwe keypair. De clients hoeven dan niet opnieuw geconfigureerd.
+
+  DNS-caches/TTL en bestaande verbindingen maken dit NIET naadloos. Bestaande
+  relay-sessies kunnen wegvallen; clients moeten opnieuw verbinden. Soms is
+  wachten op DNS-verversing of herstart van de client nodig. Verlaag vooraf de
+  DNS-TTL als je sneller wilt kunnen omschakelen; dat leegt oude caches niet.
+  Failback: maak eerst een NIEUWE back-up van de dan actieve server en herstel
+  die op de oude host. Het script voegt twee uiteenlopende databases niet samen.
+
+HERSTELLEN ALS JE NOG GEEN RESERVEKOPIE HAD KLAARGEZET
+  Installeer eerst Docker/Compose en Python op de nieuwe Linux-host.
+  Kopieer de .tar.gz, .sha256 en rustdesk-dr.py via SCP naar een eigen map daar.
+  Lees de 64 hextekens uit het .sha256-bestand en voer uit (vervang placeholders):
+
+    sudo python3 rustdesk-dr.py restore --archive /PAD/backup.tar.gz \
+      --sha256 DE_64_HEXTEKENS --target-dir /srv/rustdesk-herstel
+
+  De herstelmap mag nog NIET bestaan. Dit valideert en pakt de back-up uit,
+  laadt Docker-images en laat de containers uit. Daarna gebruik je activate.
+  Gebruik steeds rustdesk-dr.py uit ditzelfde scriptpakket/back-upformaat.
+
+SECURITY, BEHEER EN FOUTEN
+  Deze back-up bevat WEL de PRIVATE serverkey. Niet uploaden naar GitHub,
+  de openbare downloadsite, e-mail of een publiek toegankelijke share.
+  SSH versleutelt de overdracht. Het .tar.gz-bestand is zelf NIET versleuteld;
+  bewaar Windows-back-ups op een afgeschermde, bij voorkeur BitLocker-schijf.
+  Bewaar SSH-keys niet in de RustDesk-stackmap. Ruim oude snapshots en images
+  bewust op na een geslaagde hersteltest; er is geen automatische retentie.
+  Voor een ingeplande Windows-taak is dezelfde SSH-key/toegang nodig onder het
+  account waarmee die taak draait. Gebruik geen plaintext SSH-wachtwoorden.
+
+  Bij een stop/kopieerfout probeert finally de oorspronkelijk actieve services
+  te herstarten. SIGHUP/TERM/INT worden tijdens de korte snapshotfase genegeerd
+  zodat een SSH-verbreking die herstart niet vroegtijdig afbreekt. Een stroom-
+  storing, SIGKILL, kapotte Docker-daemon of mislukte start is niet op te vangen:
+  controleer na een fout de primaire stack handmatig. Een back-up met een
+  mislukte herstart wordt niet als geslaagd gemeld.
+  Bij een mislukte download blijven de remote back-up en lokale .part bewaard.
+  Bij een mislukte restore kan een gedeeltelijke NIEUWE herstelmap blijven
+  staan; verwijder/hernoem die pas na inspectie en kies een nieuwe herstelmap.
+
+  Wijzig Compose/configuratie niet tijdens het back-upmoment. Stop een lopende
+  prepare-client-taak eerst of wacht tot die gereed is. Andere containers op
+  dezelfde Docker-host worden niet door dit script gestopt.
+
+VALIDATIE EN REGRESSIEOPPERVLAK
+  PowerShell-syntax gecontroleerd en drie gerichte Python-tests geslaagd:
+    herstart na gedeeltelijke stop-/kopieerfout;
+    weigering van onveilige tar-paden/symlinks;
+    weigering van verkeerde hash of bestaande herstelmap zonder overschrijven.
+  De scripts zijn NIET op jouw Azure-VM uitgevoerd. Er is nog geen volledige
+  Docker/SSH-hersteltest of DNS-failover tussen jouw hosts gedaan.
+  Er zijn uitsluitend nieuwe scripts/documentatie toegevoegd; geen wijzigingen
+  aan RustDesk-code, Compose of de live website. Echte hersteltest is nodig
+  voordat je dit als enige uitwijkvoorziening gebruikt.

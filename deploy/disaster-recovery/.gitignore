@@ -1,0 +1,5 @@
+backups/
+__pycache__/
+*.tar.gz
+*.tar.gz.*
+*.part
