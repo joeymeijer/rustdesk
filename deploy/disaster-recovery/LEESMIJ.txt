@@ -145,6 +145,27 @@ FAILOVER
   die op de oude host. Het script voegt twee uiteenlopende databases niet samen.
 
 HERSTELLEN ALS JE NOG GEEN RESERVEKOPIE HAD KLAARGEZET
+  Eenvoudig vanaf Windows met je BESTAANDE back-up, zonder de bron te benaderen:
+
+    .\Restore-RustDesk.ps1 -TargetHost joey@JOUW_RESERVE_IP `
+      -BackupPath .\backups\JOUW_BACKUP.tar.gz `
+      -TargetDirectory /srv/rustdesk-herstel
+
+  Dit script verwacht de .tar.gz.sha256 naast het archief en rustdesk-dr.py
+  naast het script. Het controleert de lokale hash voordat SSH wordt gestart,
+  uploadt de bestanden en voert restore uit. De bron wordt niet aangeraakt.
+  Op de Linux-doelhost moeten SSH-keylogin, sudo -n, Python, GNU tar en Docker
+  Compose al werken. Gebruik dezelfde CPU-architectuur als de bron.
+  TargetDirectory mag nog niet bestaan; kies anders een andere nieuwe map.
+  Het maakt GEEN containers aan en start niets. Na afloop krijg je de exacte
+  activatieopdracht op het scherm en in een uniek .restore-XXXXXXXX.txt-bestand
+  naast de lokale back-up. Gebruik die pas nadat de oude primary uit/geisoleerd
+  is en de proxy/HTTPS/poorten van de doelhost zijn voorbereid.
+  Als herstel mislukt worden tijdelijke uploads bewust niet verwijderd, zodat
+  een eventueel nog lopende herstelactie zijn input niet kwijtraakt.
+  Het lokale archief en zijn checksum blijven altijd behouden.
+
+  Handmatig op Linux kan ook:
   Installeer eerst Docker/Compose en Python op de nieuwe Linux-host.
   Kopieer de .tar.gz, .sha256 en rustdesk-dr.py via SCP naar een eigen map daar.
   Lees de 64 hextekens uit het .sha256-bestand en voer uit (vervang placeholders):
@@ -185,8 +206,11 @@ VALIDATIE EN REGRESSIEOPPERVLAK
     herstart na gedeeltelijke stop-/kopieerfout;
     weigering van onveilige tar-paden/symlinks;
     weigering van verkeerde hash of bestaande herstelmap zonder overschrijven.
-  De scripts zijn NIET op jouw Azure-VM uitgevoerd. Er is nog geen volledige
-  Docker/SSH-hersteltest of DNS-failover tussen jouw hosts gedaan.
+  De gebruiker heeft de back-up inmiddels succesvol op de Azure-VM uitgevoerd:
+  containers gestopt/herstart en het archief op Windows met SHA256 geverifieerd.
+  De Windows-restorewrapper is op syntax en weigering van een verkeerde hash
+  voor de eerste SSH-verbinding getest. Er is nog geen volledige Docker/SSH-
+  hersteltest op een andere host of DNS-failover tussen jouw hosts gedaan.
   Er zijn uitsluitend nieuwe scripts/documentatie toegevoegd; geen wijzigingen
   aan RustDesk-code, Compose of de live website. Echte hersteltest is nodig
   voordat je dit als enige uitwijkvoorziening gebruikt.
